@@ -4,8 +4,9 @@ namespace App\Modules\ForgeWire\Core;
 
 use App\Modules\ForgeWire\Attributes\Action;
 use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Support\Checksum;
-use App\Modules\ForgeWire\Support\ForgeWireResponse;
+use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
+use App\Modules\ForgeWire\Security\Checksum;
+use App\Modules\ForgeWire\Response\ForgeWireResponse;
 use Forge\Core\DI\Container;
 use App\Modules\ForgeRouter\Http\Request;
 use App\Modules\ForgeRouter\Http\Response;
@@ -31,6 +32,11 @@ final class WireKernel
   ) {
   }
 
+  private function tokenizerFor(HtmlTokenizer|string $source): HtmlTokenizer
+  {
+    return $source instanceof HtmlTokenizer ? $source : new HtmlTokenizer($source);
+  }
+
   public function process(array $p, Request $request, SessionInterface $session): array
   {
     $id = (string) ($p["id"] ?? "");
@@ -45,6 +51,7 @@ final class WireKernel
     $ctx = [
       "class" => $class,
       "path" => (string) ($p["fingerprint"]["path"] ?? "/"),
+      "depends" => $depends ?? [],
     ];
 
     if ($class === "" || !class_exists($class)) {
@@ -194,16 +201,18 @@ final class WireKernel
       $events = $responseContext->getEvents();
       ForgeWireResponse::clearContext($id);
 
-      $this->parseSharedGroupsFromHtml($html, $session, $class);
+      $htmlTokenizer = new HtmlTokenizer($html);
+
+      $this->parseSharedGroupsFromHtml($htmlTokenizer, $session, $class);
       $this->discoverSharedGroupFromRegisteredComponents($session, $class);
       $this->initializeSharedGroupIfNeeded($id, $class, $session, $request, $sharedKey, $html);
-      $this->parseAndStoreUsesForAllComponents($html, $session, $class);
-      $this->discoverAndStoreUsesForRegisteredComponents($html, $session, $class);
+      $this->parseAndStoreUsesForAllComponents($htmlTokenizer, $session, $class);
+      $this->discoverAndStoreUsesForRegisteredComponents($htmlTokenizer, $session, $class);
       $this->assertDependenciesRegisteredForController($session, $class);
 
-      $this->trackComponentsInHtml($html, $session);
+      $this->trackComponentsInHtml($htmlTokenizer, $session);
 
-      $componentHtml = $this->extractComponentHtml($html, $id);
+      $componentHtml = $htmlTokenizer->extractFirstElementByAttribute('fw:id', $id);
       if ($componentHtml === null) {
         $componentHtml = $html;
       }
@@ -338,6 +347,13 @@ final class WireKernel
       if ($action !== $originalAction && !$meta['isAction']) {
         throw new RuntimeException("Action not allowed: {$action}. Must be marked with #[Action].");
       }
+
+      $sessionKey = "forgewire:{$id}";
+      if ($this->hasAnyExpectedActions($sessionKey, $session)) {
+        if (!$this->checksum->isExpectedAction($sessionKey, $session, $action, $args)) {
+          throw new RuntimeException("ForgeWire action signature mismatch: {$action}.");
+        }
+      }
     }
 
     $methodArgs = [];
@@ -395,34 +411,62 @@ final class WireKernel
     return null;
   }
 
-  private function extractActionsFromHtml(string $html, string $componentId): array
+  private function extractActionsFromHtml(HtmlTokenizer|string $source, string $componentId): array
   {
     $actions = [];
 
-    if (empty($html)) {
+    $html = $source instanceof HtmlTokenizer ? '' : $source;
+    if ($source instanceof HtmlTokenizer && $source->tokens() === []) {
+      return $actions;
+    }
+    if ($html === '' && !$source instanceof HtmlTokenizer) {
       return $actions;
     }
 
-    $pattern = '/<[^>]*fw:click=["\']([^"\']+)["\'][^>]*>/i';
-    if (!preg_match_all($pattern, $html, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
-      return $actions;
-    }
+    $tokenizer = $this->tokenizerFor($source);
+    $actionAttributes = [
+      'fw:click',
+      'fw:click.optimistic',
+      'fw:submit',
+      'fw:submit.optimistic',
+      'fw:action',
+    ];
 
-    foreach ($matches as $match) {
-      $fullTag = $match[0][0];
-      $actionName = trim($match[1][0] ?? '');
+    foreach ($tokenizer->tokens() as $token) {
+      if (!$this->isActionTagToken($token)) {
+        continue;
+      }
+
+      $actionName = null;
+      foreach ($actionAttributes as $attr) {
+        if (array_key_exists($attr, $token['attributes'])) {
+          $actionName = trim((string) $token['attributes'][$attr]);
+          break;
+        }
+      }
+
+      // fw:keydown.<key> is dynamic, so check for any prefix.
+      if ($actionName === null || $actionName === '') {
+        foreach ($token['attributes'] as $attr => $value) {
+          if (str_starts_with($attr, 'fw:keydown.')) {
+            $actionName = trim((string) $value);
+            break;
+          }
+        }
+      }
 
       if (empty($actionName)) {
         continue;
       }
 
       $args = [];
-
-      if (preg_match_all('/fw:param-([a-zA-Z0-9_-]+)=["\']([^"\']*)["\']/i', $fullTag, $paramMatches, PREG_SET_ORDER)) {
-        foreach ($paramMatches as $paramMatch) {
-          $paramName = strtolower(trim($paramMatch[1]));
-          $paramValue = $paramMatch[2];
-          $args[$paramName] = $paramValue;
+      foreach ($token['attributes'] as $attr => $value) {
+        if (!str_starts_with($attr, 'fw:param-')) {
+          continue;
+        }
+        $paramName = strtolower(substr($attr, strlen('fw:param-')));
+        if ($paramName !== '') {
+          $args[$paramName] = (string) $value;
         }
       }
 
@@ -433,6 +477,26 @@ final class WireKernel
     }
 
     return $actions;
+  }
+
+  private function isActionTagToken(array $token): bool
+  {
+    if (!in_array($token['type'], ['open', 'self-closing'], true)) {
+      return false;
+    }
+    foreach ($token['attributes'] as $attr => $_) {
+      if (
+        $attr === 'fw:click' ||
+        $attr === 'fw:click.optimistic' ||
+        $attr === 'fw:submit' ||
+        $attr === 'fw:submit.optimistic' ||
+        $attr === 'fw:action' ||
+        str_starts_with($attr, 'fw:keydown.')
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private function storeExpectedActions(string $html, string $componentId, SessionInterface $session, string $sessionKey): void
@@ -617,7 +681,8 @@ final class WireKernel
       return null;
     }
 
-    $componentHtml = $this->extractComponentHtml($html, $componentId);
+    $htmlTokenizer = new HtmlTokenizer($html);
+    $componentHtml = $htmlTokenizer->extractFirstElementByAttribute('fw:id', $componentId);
 
     if ($componentHtml === null) {
       return null;
@@ -762,27 +827,17 @@ final class WireKernel
     return false;
   }
 
-  private function parseAndStoreUses(string $html, string $componentId, SessionInterface $session): void
+  private function parseAndStoreUses(HtmlTokenizer|string $source, string $componentId, SessionInterface $session): void
   {
+    $tokenizer = $this->tokenizerFor($source);
     $uses = [];
 
-    if (preg_match_all('/fw:uses=["\']([^"\']+)["\']/', $html, $matches)) {
-      foreach ($matches[1] as $match) {
-        $values = array_map('trim', explode(',', $match));
-        foreach ($values as $value) {
-          if ($value !== '') {
-            $uses[$value] = true;
-          }
-        }
-      }
-    }
-
-    if (preg_match_all('/fw:depends=["\']([^"\']+)["\']/', $html, $matches)) {
-      foreach ($matches[1] as $match) {
-        $values = array_map('trim', explode(',', $match));
-        foreach ($values as $value) {
-          if ($value !== '') {
-            $uses[$value] = true;
+    foreach (['fw:uses', 'fw:depends'] as $attribute) {
+      foreach ($tokenizer->collectAttributeValues($attribute) as $value) {
+        $values = array_map('trim', explode(',', $value));
+        foreach ($values as $v) {
+          if ($v !== '') {
+            $uses[$v] = true;
           }
         }
       }
@@ -791,45 +846,41 @@ final class WireKernel
     $session->set("forgewire:{$componentId}:uses", array_keys($uses));
   }
 
-  private function parseAndStoreUsesForAllComponents(string $html, SessionInterface $session, ?string $controllerClass = null): void
+  private function parseAndStoreUsesForAllComponents(HtmlTokenizer|string $source, SessionInterface $session, ?string $controllerClass = null): void
   {
-    if (preg_match_all('/fw:id=["\']([^"\']+)["\']/', $html, $idMatches)) {
-      foreach ($idMatches[1] as $componentId) {
-        $componentClass = $session->get("forgewire:{$componentId}:class");
+    $tokenizer = $this->tokenizerFor($source);
 
-        if ($componentClass === null) {
-          if ($controllerClass !== null) {
-            $session->set("forgewire:{$componentId}:class", $controllerClass);
-            $session->set("forgewire:{$componentId}:action", "index");
-            $componentClass = $controllerClass;
-          } else {
-            continue;
-          }
-        }
+    foreach ($tokenizer->collectAttributeValues('fw:id') as $componentId) {
+      $componentClass = $session->get("forgewire:{$componentId}:class");
 
-        if ($controllerClass !== null && $componentClass !== $controllerClass) {
+      if ($componentClass === null) {
+        if ($controllerClass !== null) {
+          $session->set("forgewire:{$componentId}:class", $controllerClass);
+          $session->set("forgewire:{$componentId}:action", "index");
+          $componentClass = $controllerClass;
+        } else {
           continue;
         }
+      }
 
-        $componentHtml = $this->extractComponentHtml($html, $componentId);
-        if ($componentHtml !== null) {
-          $this->parseAndStoreUses($componentHtml, $componentId, $session);
-        } else {
-          $this->parseAndStoreUses($html, $componentId, $session);
-        }
+      if ($controllerClass !== null && $componentClass !== $controllerClass) {
+        continue;
+      }
+
+      $componentHtml = $tokenizer->extractFirstElementByAttribute('fw:id', $componentId);
+      if ($componentHtml !== null) {
+        $this->parseAndStoreUses($componentHtml, $componentId, $session);
+      } else {
+        $this->parseAndStoreUses($tokenizer, $componentId, $session);
       }
     }
   }
 
-  private function discoverAndStoreUsesForRegisteredComponents(string $html, SessionInterface $session, string $controllerClass): void
+  private function discoverAndStoreUsesForRegisteredComponents(HtmlTokenizer|string $source, SessionInterface $session, string $controllerClass): void
   {
+    $tokenizer = $this->tokenizerFor($source);
+    $foundInHtml = array_flip($tokenizer->collectAttributeValues('fw:id'));
     $allSessionKeys = array_keys($session->all());
-    $foundInHtml = [];
-
-
-    if (preg_match_all('/fw:id=["\']([^"\']+)["\']/', $html, $idMatches)) {
-      $foundInHtml = array_flip($idMatches[1]);
-    }
 
     foreach ($allSessionKeys as $sessionKey) {
       if (!str_starts_with($sessionKey, 'forgewire:')) {
@@ -859,11 +910,11 @@ final class WireKernel
         continue;
       }
 
-      $componentHtml = $this->extractComponentHtml($html, $componentId);
+      $componentHtml = $tokenizer->extractFirstElementByAttribute('fw:id', $componentId);
       if ($componentHtml !== null) {
         $this->parseAndStoreUses($componentHtml, $componentId, $session);
       } else {
-        $this->parseAndStoreUses($html, $componentId, $session);
+        $this->parseAndStoreUses($tokenizer, $componentId, $session);
       }
     }
   }
@@ -901,254 +952,64 @@ final class WireKernel
     }
   }
 
-  private function extractComponentHtml(string $fullHtml, string $componentId): ?string
+  private function extractComponentHtml(HtmlTokenizer|string $source, string $componentId): ?string
   {
-    $escapedId = preg_quote($componentId, '/');
-
-    $pattern = '/<([^\s>]+)[^>]*fw:id=["\']' . $escapedId . '["\'][^>]*(?:\/>|>)/i';
-
-    if (!preg_match($pattern, $fullHtml, $tagMatch, PREG_OFFSET_CAPTURE)) {
-      return null;
-    }
-
-    $rootTagName = strtolower($tagMatch[1][0]);
-    $startPos = $tagMatch[0][1];
-    $tagContent = $tagMatch[0][0];
-
-    if (substr(trim($tagContent), -2) === '/>') {
-      return $tagContent;
-    }
-
-    $stack = [$rootTagName];
-    $pos = $startPos + strlen($tagContent);
-    $len = strlen($fullHtml);
-    $result = $tagContent;
-
-    $selfClosingTags = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
-
-    while ($pos < $len && !empty($stack)) {
-      $nextTag = strpos($fullHtml, '<', $pos);
-      if ($nextTag === false) {
-        $result .= substr($fullHtml, $pos);
-        break;
-      }
-
-      $result .= substr($fullHtml, $pos, $nextTag - $pos);
-      $pos = $nextTag;
-
-      if ($pos + 3 < $len && substr($fullHtml, $pos, 4) === '<!--') {
-        $commentEnd = strpos($fullHtml, '-->', $pos);
-        if ($commentEnd !== false) {
-          $result .= substr($fullHtml, $pos, $commentEnd - $pos + 3);
-          $pos = $commentEnd + 3;
-          continue;
-        }
-      }
-
-      if ($pos + 1 < $len && $fullHtml[$pos + 1] === '/') {
-        $closeEnd = strpos($fullHtml, '>', $pos);
-        if ($closeEnd === false) {
-          break;
-        }
-
-        $closeTag = substr($fullHtml, $pos, $closeEnd - $pos + 1);
-        if (preg_match('/<\/([^\s>]+)/i', $closeTag, $closeMatch)) {
-          $closeTagName = strtolower($closeMatch[1]);
-          if (!empty($stack) && $closeTagName === $stack[count($stack) - 1]) {
-            array_pop($stack);
-            $result .= $closeTag;
-            $pos = $closeEnd + 1;
-            if (empty($stack)) {
-              break;
-            }
-          } else {
-            $result .= $closeTag;
-            $pos = $closeEnd + 1;
-          }
-        } else {
-          $result .= $closeTag;
-          $pos = $closeEnd + 1;
-        }
-      } else {
-        $openEnd = strpos($fullHtml, '>', $pos);
-        if ($openEnd === false) {
-          break;
-        }
-
-        $openTag = substr($fullHtml, $pos, $openEnd - $pos + 1);
-        $isSelfClosing = substr(trim($openTag), -2) === '/>';
-
-        if (!$isSelfClosing && preg_match('/<([^\s>\/]+)/i', $openTag, $openMatch)) {
-          $openTagName = strtolower($openMatch[1]);
-          if ($openTagName !== '!--' && !in_array($openTagName, $selfClosingTags, true)) {
-            $stack[] = $openTagName;
-          }
-        }
-
-        $result .= $openTag;
-        $pos = $openEnd + 1;
-      }
-    }
-
-    if (!empty($stack)) {
-      return null;
-    }
-
-    return $result;
+    $tokenizer = $this->tokenizerFor($source);
+    return $tokenizer->extractFirstElementByAttribute('fw:id', $componentId);
   }
 
-  private function extractTargetElements(string $html): array
+  private function extractTargetElements(HtmlTokenizer|string $source): array
   {
-    $len = strlen($html);
-    $pos = 0;
-    $targets = [];
-
-    $stack = [];
-    $captureStart = null;
-    $captureDepth = null;
-
-    $selfClosing = [
-      'area',
-      'base',
-      'br',
-      'col',
-      'embed',
-      'hr',
-      'img',
-      'input',
-      'link',
-      'meta',
-      'param',
-      'source',
-      'track',
-      'wbr'
-    ];
-
-    while ($pos < $len) {
-      $lt = strpos($html, '<', $pos);
-      if ($lt === false) {
-        break;
-      }
-
-      if ($captureStart !== null) {
-      }
-
-      if (substr($html, $lt, 4) === '<!--') {
-        $end = strpos($html, '-->', $lt + 4);
-        $pos = $end !== false ? $end + 3 : $len;
-        continue;
-      }
-
-      if (isset($html[$lt + 1]) && $html[$lt + 1] === '!') {
-        $end = strpos($html, '>', $lt + 2);
-        $pos = $end !== false ? $end + 1 : $len;
-        continue;
-      }
-
-      if (isset($html[$lt + 1]) && $html[$lt + 1] === '/') {
-        if (preg_match('/<\/\s*([^\s>]+)/A', substr($html, $lt), $m)) {
-          $tag = strtolower($m[1]);
-          array_pop($stack);
-
-          if ($captureStart !== null && count($stack) < $captureDepth) {
-            $targets[] = substr($html, $captureStart, $lt + strlen($m[0]) + 1 - $captureStart);
-            $captureStart = null;
-            $captureDepth = null;
-          }
-        }
-
-        $end = strpos($html, '>', $lt);
-        $pos = $end !== false ? $end + 1 : $len;
-        continue;
-      }
-
-      if (preg_match('/<([^\s>\/]+)/A', substr($html, $lt), $m)) {
-        $tag = strtolower($m[1]);
-        $end = strpos($html, '>', $lt);
-        if ($end === false) {
-          break;
-        }
-
-        $fullTag = substr($html, $lt, $end - $lt + 1);
-        $isSelfClosing =
-          substr($fullTag, -2) === '/>' ||
-          in_array($tag, $selfClosing, true);
-
-        if (
-          $captureStart === null &&
-          strpos($fullTag, 'fw:target') !== false
-        ) {
-          $captureStart = $lt;
-          $captureDepth = count($stack) + 1;
-        }
-
-        if (!$isSelfClosing) {
-          $stack[] = $tag;
-        }
-
-        $pos = $end + 1;
-        continue;
-      }
-
-      $pos = $lt + 1;
-    }
-
-    return $targets;
+    $tokenizer = $this->tokenizerFor($source);
+    return array_values($tokenizer->extractElementsByAttribute('fw:target'));
   }
 
-  private function parseSharedGroupsFromHtml(string $html, SessionInterface $session, ?string $controllerClass = null): void
+  private function parseSharedGroupsFromHtml(HtmlTokenizer|string $source, SessionInterface $session, ?string $controllerClass = null): void
   {
-    if (!preg_match_all('/<([^\s>]+)[^>]*\s*fw:shared[^>]*(?:\/>|>)/i', $html, $sharedMatches, PREG_OFFSET_CAPTURE)) {
-      return;
-    }
+    $tokenizer = $this->tokenizerFor($source);
 
-    foreach ($sharedMatches[0] as $index => $match) {
-      $tagName = strtolower($sharedMatches[1][$index][0]);
-      $startPos = $match[1];
-      $tagContent = $match[0];
-
-      if (substr(trim($tagContent), -2) === '/>') {
-        continue;
-      }
-
-      $containerHtml = $this->extractContainerHtml($html, $tagName, $startPos);
+    foreach ($tokenizer->findTagIndicesByAttribute('fw:shared') as $index) {
+      $containerHtml = $tokenizer->extractElement($index);
       if ($containerHtml === null) {
         continue;
       }
 
-      if (preg_match_all('/fw:id=["\']([^"\']+)["\']/', $containerHtml, $idMatches)) {
-        $componentIds = $idMatches[1];
-        $groupedByClass = [];
+      $containerTokenizer = $this->tokenizerFor($containerHtml);
+      $componentIds = array_values($containerTokenizer->collectAttributeValues('fw:id'));
+      if ($componentIds === []) {
+        continue;
+      }
 
-        foreach ($componentIds as $componentId) {
-          $componentClass = $session->get("forgewire:{$componentId}:class");
+      $groupedByClass = [];
 
-          if ($componentClass === null && $controllerClass !== null) {
-            $session->set("forgewire:{$componentId}:class", $controllerClass);
-            $session->set("forgewire:{$componentId}:action", "index");
-            $componentClass = $controllerClass;
-          }
+      foreach ($componentIds as $componentId) {
+        $componentClass = $session->get("forgewire:{$componentId}:class");
 
-          if ($componentClass !== null) {
-            if ($controllerClass !== null && $componentClass !== $controllerClass) {
-              continue;
-            }
-
-            if (!isset($groupedByClass[$componentClass])) {
-              $groupedByClass[$componentClass] = [];
-            }
-            if (!in_array($componentId, $groupedByClass[$componentClass], true)) {
-              $groupedByClass[$componentClass][] = $componentId;
-            }
-          }
+        if ($componentClass === null && $controllerClass !== null) {
+          $session->set("forgewire:{$componentId}:class", $controllerClass);
+          $session->set("forgewire:{$componentId}:action", "index");
+          $componentClass = $controllerClass;
         }
 
-        foreach ($groupedByClass as $controllerClassKey => $components) {
-          $groupKey = "forgewire:shared-group:{$controllerClassKey}:components";
-          $existing = $session->get($groupKey, []);
-          $merged = array_unique(array_merge($existing, $components));
-          $session->set($groupKey, array_values($merged));
+        if ($componentClass !== null) {
+          if ($controllerClass !== null && $componentClass !== $controllerClass) {
+            continue;
+          }
+
+          if (!isset($groupedByClass[$componentClass])) {
+            $groupedByClass[$componentClass] = [];
+          }
+          if (!in_array($componentId, $groupedByClass[$componentClass], true)) {
+            $groupedByClass[$componentClass][] = $componentId;
+          }
         }
+      }
+
+      foreach ($groupedByClass as $controllerClassKey => $components) {
+        $groupKey = "forgewire:shared-group:{$controllerClassKey}:components";
+        $existing = $session->get($groupKey, []);
+        $merged = array_unique(array_merge($existing, $components));
+        $session->set($groupKey, array_values($merged));
       }
     }
   }
@@ -1199,79 +1060,6 @@ final class WireKernel
       $merged = array_unique(array_merge($existing, $componentIds));
       $session->set($groupKey, array_values($merged));
     }
-  }
-
-  private function extractContainerHtml(string $fullHtml, string $tagName, int $startPos): ?string
-  {
-    $tagPattern = '/<' . preg_quote($tagName, '/') . '[^>]*>/i';
-    if (!preg_match($tagPattern, $fullHtml, $tagMatch, 0, $startPos)) {
-      return null;
-    }
-
-    $tagContent = $tagMatch[0];
-    $pos = $startPos + strlen($tagContent);
-    $len = strlen($fullHtml);
-    $stack = [$tagName];
-    $result = $tagContent;
-
-    $selfClosingTags = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
-
-    while ($pos < $len && !empty($stack)) {
-      $nextTag = strpos($fullHtml, '<', $pos);
-      if ($nextTag === false) {
-        $result .= substr($fullHtml, $pos);
-        break;
-      }
-
-      $result .= substr($fullHtml, $pos, $nextTag - $pos);
-      $pos = $nextTag;
-
-      if ($pos + 1 < $len && $fullHtml[$pos + 1] === '/') {
-        $closeEnd = strpos($fullHtml, '>', $pos);
-        if ($closeEnd === false) {
-          break;
-        }
-
-        $closeTag = substr($fullHtml, $pos, $closeEnd - $pos + 1);
-        if (preg_match('/<\/([^\s>]+)/i', $closeTag, $closeMatch)) {
-          $closeTagName = strtolower($closeMatch[1]);
-          if (!empty($stack) && $closeTagName === $stack[count($stack) - 1]) {
-            array_pop($stack);
-            $result .= $closeTag;
-            $pos = $closeEnd + 1;
-            if (empty($stack)) {
-              break;
-            }
-          } else {
-            $result .= $closeTag;
-            $pos = $closeEnd + 1;
-          }
-        } else {
-          $result .= $closeTag;
-          $pos = $closeEnd + 1;
-        }
-      } else {
-        $openEnd = strpos($fullHtml, '>', $pos);
-        if ($openEnd === false) {
-          break;
-        }
-
-        $openTag = substr($fullHtml, $pos, $openEnd - $pos + 1);
-        $isSelfClosing = substr(trim($openTag), -2) === '/>';
-
-        if (!$isSelfClosing && preg_match('/<([^\s>\/]+)/i', $openTag, $openMatch)) {
-          $openTagName = strtolower($openMatch[1]);
-          if (!in_array($openTagName, $selfClosingTags, true)) {
-            $stack[] = $openTagName;
-          }
-        }
-
-        $result .= $openTag;
-        $pos = $openEnd + 1;
-      }
-    }
-
-    return empty($stack) ? $result : null;
   }
 
   private function initializeSharedGroupIfNeeded(
@@ -1331,8 +1119,10 @@ final class WireKernel
       }
 
       $componentHtml = null;
+      $currentHtmlTokenizer = null;
       if ($currentHtml !== "") {
-        $componentHtml = $this->extractComponentHtml($currentHtml, $id);
+        $currentHtmlTokenizer = new HtmlTokenizer($currentHtml);
+        $componentHtml = $currentHtmlTokenizer->extractFirstElementByAttribute('fw:id', $id);
       }
 
       if ($componentHtml === null) {
@@ -1352,7 +1142,8 @@ final class WireKernel
         }
 
         if ($html !== "") {
-          $componentHtml = $this->extractComponentHtml($html, $id);
+          $htmlTokenizer = new HtmlTokenizer($html);
+          $componentHtml = $htmlTokenizer->extractFirstElementByAttribute('fw:id', $id);
           if ($componentHtml === null) {
             $componentHtml = $html;
           }
@@ -1371,14 +1162,11 @@ final class WireKernel
   /**
    * Track components found in HTML as active
    */
-  private function trackComponentsInHtml(string $html, SessionInterface $session): void
+  private function trackComponentsInHtml(HtmlTokenizer|string $source, SessionInterface $session): void
   {
-    if (!preg_match_all('/fw:id=["\']([^"\']+)["\']/', $html, $matches)) {
-      return;
-    }
-
+    $tokenizer = $this->tokenizerFor($source);
     $now = time();
-    foreach ($matches[1] as $componentId) {
+    foreach ($tokenizer->collectAttributeValues('fw:id') as $componentId) {
       $activeKey = "forgewire:active:{$componentId}";
       $session->set($activeKey, $now);
     }

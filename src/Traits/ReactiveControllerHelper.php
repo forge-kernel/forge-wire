@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\ForgeWire\Traits;
 
-use App\Modules\ForgeWire\Support\ForgeWireResponse;
+use App\Modules\ForgeWire\Response\ForgeWireResponse;
 use App\Modules\ForgeRouter\Http\Request;
 use App\Modules\ForgeRouter\Http\Response;
 

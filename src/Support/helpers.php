@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 if (!function_exists('fw_id')) {
-    function fw_id(string $id): string
+    function fw_id(string $id, array $uses = []): string
     {
         $idAttr = 'fw:id="' . htmlspecialchars($id) . '"';
         $checksumAttr = '';
@@ -27,7 +27,7 @@ if (!function_exists('fw_id')) {
 
                     if (!$isWire) {
                         $identityService = $container->make($serviceClass);
-                        $checksumAttr = $identityService->getFingerprint($id, $route['controller'], $route['method'] ?? 'index');
+                        $checksumAttr = $identityService->getFingerprint($id, $route['controller'], $route['method'] ?? 'index', $uses);
                     }
                 }
             }

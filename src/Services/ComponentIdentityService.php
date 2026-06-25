@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\ForgeWire\Services;
 
 use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Support\Checksum;
+use App\Modules\ForgeWire\Security\Checksum;
 use Forge\Core\DI\Attributes\Service;
 use Forge\Core\Session\SessionInterface;
 
@@ -49,6 +49,7 @@ final class ComponentIdentityService
         $sig = $this->checksum->sign("forgewire:{$id}", $this->session, [
             'class' => $controllerClass,
             'path' => $currentPath,
+            'depends' => $uses,
         ]);
 
         return ' fw:checksum="' . htmlspecialchars($sig) . '"';

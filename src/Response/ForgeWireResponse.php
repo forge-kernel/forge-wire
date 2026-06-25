@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Support;
+namespace App\Modules\ForgeWire\Response;
 
 final class ForgeWireResponse
 {

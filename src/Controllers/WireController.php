@@ -30,6 +30,17 @@ final class WireController
   #[Route("/__wire", method: 'POST')]
   public function handle(Request $request): Response
   {
+    // The wire endpoint is protected by the "web" middleware group (CSRF)
+    // and the "global" middleware group (rate limiting). This endpoint is
+    // intended to be called only by the ForgeWire JavaScript runtime.
+    if (!$request->hasHeader('X-ForgeWire')) {
+      return $this->jsonResponse([
+        'error' => [
+          'message' => 'Invalid ForgeWire request.',
+        ],
+      ], 400);
+    }
+
     $payload = $request->json();
     $componentId = $payload['id'] ?? null;
 
@@ -51,7 +62,9 @@ final class WireController
       return $this->jsonResponse($result);
     } catch (\RuntimeException $e) {
       $isChecksumMismatch = str_contains($e->getMessage(), 'checksum mismatch')
-        || str_contains($e->getMessage(), 'Fingerprint mismatch');
+        || str_contains($e->getMessage(), 'Fingerprint mismatch')
+        || str_contains($e->getMessage(), 'signature mismatch')
+        || str_contains($e->getMessage(), 'dependencies have changed');
 
       if ($isChecksumMismatch && $componentId !== null) {
         $requestKey = $this->getRequestKey($payload);
@@ -63,22 +76,6 @@ final class WireController
             return $this->jsonResponse(["ignored" => true, "id" => $componentId]);
           }
         }
-
-        $sessionKey = "forgewire:{$componentId}";
-        $state = $this->session->get($sessionKey, []);
-
-        if (empty($state)) {
-          $this->logger->debug('ForgeWire checksum mismatch due to missing state - allowing re-initialization', [
-            'component_id' => $componentId,
-            'exception' => get_class($e),
-          ]);
-
-          return $this->jsonResponse([
-            'needs_reinit' => true,
-            'id' => $componentId,
-            'message' => 'Component state missing - re-initialization required',
-          ], 200);
-        }
       }
 
       $this->logger->debug('ForgeWire error: ' . $e->getMessage(), [
@@ -88,20 +85,21 @@ final class WireController
       ]);
 
       $isDebug = env('APP_DEBUG', false);
+      $statusCode = $isChecksumMismatch ? 400 : 500;
 
       $errorResponse = [
         'error' => [
-          'message' => $isDebug ? $e->getMessage() : 'An error occurred processing your request.',
+          'message' => $isDebug && !$isChecksumMismatch ? $e->getMessage() : 'An error occurred processing your request.',
           'type' => get_class($e),
         ],
       ];
 
-      if ($isDebug) {
+      if ($isDebug && !$isChecksumMismatch) {
         $errorResponse['error']['file'] = $e->getFile();
         $errorResponse['error']['line'] = $e->getLine();
       }
 
-      return $this->jsonResponse($errorResponse, 500);
+      return $this->jsonResponse($errorResponse, $statusCode);
     } catch (\Throwable $e) {
       $this->logger->debug('ForgeWire error: ' . $e->getMessage(), [
         'exception' => get_class($e),

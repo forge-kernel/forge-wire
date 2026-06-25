@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\ForgeWire\Support;
+namespace App\Modules\ForgeWire\Security;
 
 use Forge\Core\Config\Config;
 use Forge\Core\Session\SessionInterface;
@@ -63,13 +63,17 @@ final class Checksum
       'class' => (string) ($ctx['class'] ?? ''),
       'path' => (string) ($ctx['path'] ?? ''),
       'sid' => (string) $session->getId(),
-      'v' => 1,
+      'v' => 2,
       'bags' => [
         'state' => $state,
         'models' => $models,
         'dtos' => $dtos,
       ],
     ];
+
+    if (isset($ctx['depends']) && is_array($ctx['depends'])) {
+      $payload['depends'] = $ctx['depends'];
+    }
 
     if (isset($ctx['action']) && $ctx['action'] !== null) {
       $payload['action'] = (string) $ctx['action'];
@@ -89,6 +93,7 @@ final class Checksum
     $session->set($sessionKey . self::K_FP, [
       'class' => (string) ($ctx['class'] ?? ''),
       'path' => (string) ($ctx['path'] ?? ''),
+      'depends' => (array) ($ctx['depends'] ?? []),
     ]);
     $session->set($sessionKey . self::K_SIG, $sig);
     return $sig;
@@ -98,6 +103,7 @@ final class Checksum
    * Verify client-provided signature and fingerprint.
    * First request may have null checksum → initialize fp and allow.
    * Detects session changes (fingerprint exists but state is empty) and allows re-initialization.
+   * Class, path and depends must match the stored fingerprint. Path changes are rejected.
    */
   public function verify(?string $provided, string $sessionKey, SessionInterface $session, array $ctx): void
   {
@@ -118,30 +124,45 @@ final class Checksum
       $session->set($sessionKey . self::K_FP, [
         'class' => (string) ($ctx['class'] ?? ''),
         'path' => (string) ($ctx['path'] ?? ''),
+        'depends' => (array) ($ctx['depends'] ?? []),
       ]);
       return;
     }
 
     $expClass = (string) ($fp['class'] ?? '');
     $expPath = (string) ($fp['path'] ?? '');
+    $expDepends = (array) ($fp['depends'] ?? []);
     $curClass = (string) ($ctx['class'] ?? '');
     $curPath = (string) ($ctx['path'] ?? '');
+    $curDepends = (array) ($ctx['depends'] ?? []);
 
     // Class must always match
     if (!hash_equals($expClass, $curClass)) {
       throw new \RuntimeException('Fingerprint mismatch.');
     }
 
-    // Path mismatch: if path changed but state exists, update fingerprint to new path
-    // This handles navigation between routes where the component persists
+    // Path mismatch: a component rendered on one route cannot be reused on another.
+    // Full-page navigation always creates a fresh island with its own fingerprint.
     if (!hash_equals($expPath, $curPath)) {
-      // Update fingerprint with new path to allow navigation
-      $session->set($sessionKey . self::K_FP, [
-        'class' => $curClass,
-        'path' => $curPath,
-      ]);
-      // Re-sign with new path
-      $session->set($sessionKey . self::K_SIG, $this->compute($session, $sessionKey, $ctx));
+      throw new \RuntimeException('Fingerprint mismatch: component path has changed.');
+    }
+
+    // Depends mismatch: if the component was rendered without declared dependencies,
+    // allow a one-time initialization from the first wire request. After that, the
+    // dependency list is locked and any change is treated as tampering.
+    if ($expDepends !== $curDepends) {
+      if ($expDepends === [] && $curDepends !== []) {
+        $session->set($sessionKey . self::K_FP, [
+          'class' => $curClass,
+          'path' => $curPath,
+          'depends' => $curDepends,
+        ]);
+        $session->set($sessionKey . self::K_SIG, $this->compute($session, $sessionKey, $ctx));
+        // Skip checksum verification this once; the response will carry the new signature.
+        return;
+      }
+
+      throw new \RuntimeException('Fingerprint mismatch: component dependencies have changed.');
     }
 
     $stored = (string) ($session->get($sessionKey . self::K_SIG) ?? '');
