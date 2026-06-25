@@ -7,9 +7,11 @@ namespace App\Modules\ForgeWire\Middlewares;
 use App\Modules\ForgeRouter\Http\Middleware;
 use App\Modules\ForgeRouter\Http\Request;
 use App\Modules\ForgeRouter\Http\Response;
+use App\Modules\ForgeRouter\Middleware\Attributes\RegisterMiddleware;
 use Forge\Core\Session\SessionInterface;
 use Forge\Traits\WireHelper;
 
+#[RegisterMiddleware(group: 'web', order: 100)]
 final class ForgeWireMiddleware extends Middleware
 {
   use WireHelper;
