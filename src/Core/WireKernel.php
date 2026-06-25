@@ -502,30 +502,36 @@ final class WireKernel
   private function storeExpectedActions(string $html, string $componentId, SessionInterface $session, string $sessionKey): void
   {
     $actions = $this->extractActionsFromHtml($html, $componentId);
+    $registryKey = $sessionKey . ':actions:list';
 
-    $prefix = $sessionKey . ':actions:';
-    $allSession = $session->all();
-    foreach ($allSession as $key => $value) {
-      if (str_starts_with($key, $prefix)) {
-        $session->remove($key);
-      }
+    $previous = (array) $session->get($registryKey, []);
+    foreach ($previous as $signature) {
+      $session->remove($sessionKey . ':actions:' . $signature);
     }
 
+    $signatures = [];
     foreach ($actions as $actionData) {
-      $this->checksum->storeExpectedAction($sessionKey, $session, $actionData['action'], $actionData['args']);
+      $signature = $this->checksum->computeActionSignature($actionData['action'], $actionData['args']);
+      $session->set($sessionKey . ':actions:' . $signature, true);
+      $signatures[] = $signature;
     }
+
+    $session->set($registryKey, $signatures);
   }
 
   private function hasAnyExpectedActions(string $sessionKey, SessionInterface $session): bool
   {
-    $prefix = $sessionKey . ':actions:';
-    $allSession = $session->all();
-    foreach ($allSession as $key => $value) {
-      if (str_starts_with($key, $prefix)) {
-        return true;
-      }
-    }
-    return false;
+    $registryKey = $sessionKey . ':actions:list';
+    $signatures = $session->get($registryKey, []);
+    return !empty($signatures);
+  }
+
+  /**
+   * @return array<int, string>
+   */
+  private function sessionKeys(SessionInterface $session): array
+  {
+    return array_keys($session->all());
   }
 
   private function isSubmitAction(string $class, string $action): bool
@@ -608,7 +614,7 @@ final class WireKernel
     $affected = [];
     $changedKeys = array_keys($sharedStateChanges);
 
-    foreach ($session->all() as $sessionKey => $_) {
+    foreach ($this->sessionKeys($session) as $sessionKey) {
       if (!preg_match('/^forgewire:(.+):uses$/', $sessionKey, $m)) {
         continue;
       }
@@ -880,9 +886,8 @@ final class WireKernel
   {
     $tokenizer = $this->tokenizerFor($source);
     $foundInHtml = array_flip($tokenizer->collectAttributeValues('fw:id'));
-    $allSessionKeys = array_keys($session->all());
 
-    foreach ($allSessionKeys as $sessionKey) {
+    foreach ($this->sessionKeys($session) as $sessionKey) {
       if (!str_starts_with($sessionKey, 'forgewire:')) {
         continue;
       }
@@ -921,10 +926,9 @@ final class WireKernel
 
   private function assertDependenciesRegisteredForController(SessionInterface $session, string $controllerClass): void
   {
-    $allSessionKeys = array_keys($session->all());
     $componentIds = [];
 
-    foreach ($allSessionKeys as $sessionKey) {
+    foreach ($this->sessionKeys($session) as $sessionKey) {
       if (!preg_match('/^forgewire:([^:]+):class$/', $sessionKey, $matches)) {
         continue;
       }
@@ -1018,11 +1022,10 @@ final class WireKernel
   {
     $groupKey = "forgewire:shared-group:{$controllerClass}:components";
 
-    $allSessionKeys = array_keys($session->all());
     $componentIds = [];
     $foundComponentIds = [];
 
-    foreach ($allSessionKeys as $sessionKey) {
+    foreach ($this->sessionKeys($session) as $sessionKey) {
       if (!str_starts_with($sessionKey, 'forgewire:')) {
         continue;
       }
