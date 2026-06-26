@@ -19,16 +19,20 @@ final class ComponentIdentityService
 
     public function __construct(
         private SessionInterface $session,
-        private Checksum $checksum
+        private Checksum $checksum,
+        private ComponentRegistry $registry
     ) {
     }
 
     /**
-     * Generates the ForgeWire checksum and signs the component identity in session.
+     * Set up session keys and sign a checksum for the given component.
+     * Returns the checksum signature string, or empty string if the controller
+     * is not reactive.
      */
     public function getFingerprint(
         string $id,
         string $controllerClass,
+        string $currentPath,
         ?string $method = 'index',
         array $uses = []
     ): string {
@@ -45,20 +49,24 @@ final class ComponentIdentityService
         $this->session->set("forgewire:{$id}:class", $controllerClass);
         $this->session->set("forgewire:{$id}:action", $method ?? 'index');
 
-        $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-        $sig = $this->checksum->sign("forgewire:{$id}", $this->session, [
+        $this->registry->register($id, $controllerClass);
+
+        return $this->checksum->sign("forgewire:{$id}", $this->session, [
             'class' => $controllerClass,
             'path' => $currentPath,
             'depends' => $uses,
         ]);
+    }
 
-        return ' fw:checksum="' . htmlspecialchars($sig) . '"';
+    public function isReactive(string $class): bool
+    {
+        return $this->isReactiveInternal($class);
     }
 
     /**
      * Check if a controller is ForgeWire compatible using reflection and static caching.
      */
-    private function isReactive(string $class): bool
+    private function isReactiveInternal(string $class): bool
     {
         if (isset(self::$reflectionCache[$class])) {
             return self::$reflectionCache[$class];

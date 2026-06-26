@@ -1,3 +1,14 @@
+/**
+ * ForgeWire client-side runtime.
+ *
+ * Security:
+ *   - Server HTML is trusted after validation in applyComponentUpdate.
+ *   - Event names are validated against `/^[a-zA-Z0-9_-]+$/`.
+ *   - CSS selectors from server events are escaped via escapeCssSelector().
+ *   - Redirect URLs are restricted to same-origin or absolute paths.
+ *   - CSRF token is sent with all wire requests.
+ *   - Checksum verification is enforced server-side.
+ */
 (() => {
 	if (typeof window !== 'undefined') {
 		if (window.__forgeWireInitialized) {
@@ -68,10 +79,10 @@
 	// ============================================================================
 	let composing = false;
 	let tabbing = false;
-	let suppressInputsUntil = 0;
 	let pendingRedirectTimeout = null;
 
 	document.addEventListener('compositionstart', () => composing = true);
+
 	document.addEventListener('compositionend', () => composing = false);
 
 	// ============================================================================
@@ -197,13 +208,25 @@
 	// ============================================================================
 	// ACTION PARSING
 	// ============================================================================
+	function findMatchingParen(str, start) {
+		let depth = 1;
+		for (let i = start; i < str.length; i++) {
+			if (str[i] === '(') depth++;
+			else if (str[i] === ')') depth--;
+			if (depth === 0) return i;
+		}
+		return -1;
+	}
+
 	function parseAction(expr) {
 		if (!expr) return {method: null, args: []};
 		const t = expr.trim();
 		const open = t.indexOf('(');
 		if (open === -1) return {method: t, args: []};
+		const close = findMatchingParen(t, open + 1);
+		if (close === -1) return {method: t.slice(0, open).trim(), args: []};
 		const method = t.slice(0, open).trim();
-		const inner = t.slice(open + 1, t.lastIndexOf(')')).trim();
+		const inner = t.slice(open + 1, close).trim();
 		if (!inner) return {method, args: []};
 
 		const args = [];
@@ -412,7 +435,7 @@
 		if (newRoot && newRoot.getAttribute('fw:id') === id) {
 			cleanupComponent(id);
 			root.replaceWith(newRoot);
-			const updatedRoot = document.querySelector(`[fw\\:id="${id}"]`);
+			const updatedRoot = getComponentById(id);
 
 			if (updatedRoot) {
 				updatedRoot.__fw_checksum = checksum || null;
@@ -433,9 +456,7 @@
 					for (const attr of docTargets[i].attributes) {
 						el.setAttribute(attr.name, attr.value);
 					}
-					// Attributes changed - invalidate cache for this element and its children
-					invalidateElementCache(el);
-					el.querySelectorAll('*').forEach(child => invalidateElementCache(child));
+					invalidateElementAndDescendants(el);
 				});
 
 				root.__fw_checksum = checksum || null;
@@ -444,8 +465,7 @@
 				root.innerHTML = html;
 				root.__fw_checksum = checksum || null;
 				root.setAttribute('fw:checksum', checksum || '');
-				invalidateElementCache(root);
-				root.querySelectorAll('*').forEach(child => invalidateElementCache(child));
+				invalidateElementAndDescendants(root);
 			}
 		}
 
@@ -507,10 +527,7 @@
 	// TRIGGER EXECUTION
 	// ============================================================================
 	async function performTrigger(root, action = null, args = [], dirtyOverride = null, options = null) {
-		if (pendingRedirectTimeout !== null) {
-			clearTimeout(pendingRedirectTimeout);
-			pendingRedirectTimeout = null;
-		}
+		clearPendingRedirect();
 
 		const id = attr(root, 'fw:id');
 		const pollRec = pollers.get(id);
@@ -519,7 +536,7 @@
 			pollRec.timer = null;
 		}
 
-		let currentRoot = document.querySelector(`[fw\\:id="${id}"]`);
+		let currentRoot = getComponentById(id);
 		if (!currentRoot) {
 			return {root};
 		}
@@ -628,7 +645,7 @@
 
 		if (out.updates && Array.isArray(out.updates)) {
 			out.updates.forEach(update => {
-				const affectedRoot = document.querySelector(`[fw\\:id="${update.id}"]`);
+				const affectedRoot = getComponentById(update.id);
 				if (affectedRoot) {
 					applyComponentUpdate(affectedRoot, update.html, update.state, update.checksum, {});
 					setupPolling(affectedRoot);
@@ -645,10 +662,7 @@
 		}
 
 		if (out.redirect) {
-			if (pendingRedirectTimeout !== null) {
-				clearTimeout(pendingRedirectTimeout);
-				pendingRedirectTimeout = null;
-			}
+			clearPendingRedirect();
 
 			const redirectUrl = typeof out.redirect === 'string' ? out.redirect : out.redirect.url;
 			const redirectDelay = typeof out.redirect === 'object' && out.redirect.delay ? out.redirect.delay : 0;
@@ -660,10 +674,7 @@
 						window.location.assign(redirectUrl);
 					}, redirectDelay * 1000);
 				} else {
-					if (pendingRedirectTimeout !== null) {
-						clearTimeout(pendingRedirectTimeout);
-						pendingRedirectTimeout = null;
-					}
+					clearPendingRedirect();
 					window.location.assign(redirectUrl);
 				}
 			}
@@ -751,7 +762,7 @@
 			const rec = pollers.get(id);
 			if (!rec) return;
 
-			const currentRoot = document.querySelector(`[fw\\:id="${id}"]`);
+			const currentRoot = getComponentById(id);
 			if (!currentRoot || currentRoot !== root) {
 				rec.visible = false;
 				return;
@@ -806,7 +817,7 @@
 				return;
 			}
 
-			const currentRoot = document.querySelector(`[fw\\:id="${id}"]`);
+			const currentRoot = getComponentById(id);
 			if (!currentRoot || !document.documentElement.contains(currentRoot)) {
 				try {
 					if (io && currentRoot) io.unobserve(currentRoot);
@@ -870,16 +881,7 @@
 		}
 
 		const parsed = parseAction(attr(el, directiveName));
-		const params = collectParams(el);
-		let combinedArgs = Array.isArray(parsed.args) ? [...parsed.args] : [];
-
-		if (Object.keys(params).length > 0) {
-			const obj = {};
-			combinedArgs.forEach((v, i) => obj[i] = v);
-			Object.assign(obj, params);
-			combinedArgs = obj;
-		}
-
+		const combinedArgs = mergeArgsWithParams(Array.isArray(parsed.args) ? [...parsed.args] : [], el);
 		const options = opts || {};
 		if (options.optimistic === true) {
 			trigger(root, parsed.method, combinedArgs, null, {optimistic: true});
@@ -887,6 +889,38 @@
 			trigger(root, parsed.method, combinedArgs);
 		}
 		return true;
+	}
+
+	// ============================================================================
+	// EXTRACTED HELPERS
+	// ============================================================================
+
+	function mergeArgsWithParams(args, el) {
+		const params = collectParams(el);
+		if (Object.keys(params).length === 0) return args;
+		const obj = {};
+		args.forEach((v, i) => obj[i] = v);
+		Object.assign(obj, params);
+		return obj;
+	}
+
+	function invalidateElementAndDescendants(el) {
+		invalidateElementCache(el);
+		const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
+		while (walker.nextNode()) {
+			invalidateElementCache(walker.currentNode);
+		}
+	}
+
+	function clearPendingRedirect() {
+		if (pendingRedirectTimeout !== null) {
+			clearTimeout(pendingRedirectTimeout);
+			pendingRedirectTimeout = null;
+		}
+	}
+
+	function getComponentById(id) {
+		return document.querySelector(`[fw\\:id="${id}"]`);
 	}
 
 	// ============================================================================
@@ -962,14 +996,12 @@
 	});
 
 	document.addEventListener('change', (e) => {
-		if (Date.now() < suppressInputsUntil) return;
 		const el = e.target;
 		const bind = getModelBinding(el);
 		if (!bind || bind.type !== 'lazy') return;
 		const root = closestRoot(el);
 		if (!root) return;
 		setTimeout(() => {
-			if (Date.now() < suppressInputsUntil) return;
 			trigger(root, 'input');
 		}, 0);
 	});
@@ -1007,17 +1039,7 @@
 				e.preventDefault();
 				e.stopPropagation();
 				const parsed = parseAction(expr);
-				const params = collectParams(el);
-				let combinedArgs = Array.isArray(parsed.args) ? [...parsed.args] : [];
-
-				if (Object.keys(params).length > 0) {
-					const obj = {};
-					combinedArgs.forEach((v, i) => obj[i] = v);
-					Object.assign(obj, params);
-					combinedArgs = obj;
-				}
-
-				trigger(root, parsed.method, combinedArgs);
+				trigger(root, parsed.method, mergeArgsWithParams(Array.isArray(parsed.args) ? [...parsed.args] : [], el));
 			}
 		}
 	});
@@ -1038,22 +1060,20 @@
 		document.addEventListener('DOMContentLoaded', initializePolling);
 
 		window.addEventListener('beforeunload', () => {
-			if (pendingRedirectTimeout !== null) {
-				clearTimeout(pendingRedirectTimeout);
-				pendingRedirectTimeout = null;
-			}
+			clearPendingRedirect();
 			cleanupRegistry.forEach((_, id) => cleanupComponent(id));
 		});
 
 		window.addEventListener('pagehide', () => {
-			if (pendingRedirectTimeout !== null) {
-				clearTimeout(pendingRedirectTimeout);
-				pendingRedirectTimeout = null;
-			}
+			clearPendingRedirect();
 			cleanupRegistry.forEach((_, id) => cleanupComponent(id));
 		});
 	} else {
 		initializePolling();
+	}
+
+	function escapeCssSelector(s) {
+		return s.replace(/[!"#$%&'()*+,.\/:;<=>?@[\]^`{|}~]/g, '\\$&');
 	}
 
 	// ============================================================================
@@ -1092,6 +1112,13 @@
 		});
 	}
 
+	/**
+	 * Dispatch custom DOM events from server responses.
+	 *
+	 * Security: event names are validated against `/^[a-zA-Z0-9_-]+$/`.
+	 * The `animateElement` built-in uses `escapeCssSelector()` to prevent
+	 * CSS selector injection. Only trusted server emissions reach this path.
+	 */
 	function handleEvents(events) {
 		events.forEach(event => {
 			if (!event.name || typeof event.name !== 'string') {
@@ -1115,7 +1142,7 @@
 			document.dispatchEvent(customEvent);
 
 			if (event.name === 'animateElement' && eventData.selector && eventData.animation) {
-				const elements = document.querySelectorAll(eventData.selector);
+				const elements = document.querySelectorAll(escapeCssSelector(eventData.selector));
 				const duration = eventData.duration || 500;
 				elements.forEach(el => {
 					el.classList.add('fw-animate', `fw-animate-${eventData.animation}`);

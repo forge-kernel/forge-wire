@@ -35,6 +35,7 @@ use Forge\Traits\InjectsAssets;
     'forge_wire' => [
         'use_minified' => true,
         'stale_threshold' => 200,
+        'component_ttl_seconds' => 1800,
     ]
 ])]
 #[PostInstall(command: 'asset:link', args: ['--type=module', '--module=forge-wire'])]
@@ -57,6 +58,7 @@ final class ForgeWireModule
         if (!$forgeWireConfig || !array_key_exists('use_minified', $forgeWireConfig)) {
             $config->set('forge_wire.use_minified', env('FORGE_WIRE_USE_MINIFIED', true));
         }
+        $config->set('forge_wire.component_ttl_seconds', env('FORGEWIRE_COMPONENT_TTL_SECONDS', 1800));
     }
 
     #[RouterHookAttribute(RouterHookName::AFTER_REQUEST)]

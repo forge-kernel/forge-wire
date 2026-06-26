@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\ForgeWire\Core;
 
+use App\Modules\ForgeWire\Attributes\Computed;
 use App\Modules\ForgeWire\Attributes\State;
 use App\Modules\ForgeWire\Attributes\Validate;
 use Forge\Core\DI\Container;
@@ -53,6 +54,10 @@ final class Hydrator
         $localBag = $session->get($sessionKey, []);
 
         foreach ($recipe as $propName => $cfg) {
+            if (!is_array($cfg) || !isset($cfg['kind'])) {
+                continue;
+            }
+
             $value = null;
 
             if ($cfg['kind'] === 'state') {
@@ -88,6 +93,10 @@ final class Hydrator
             }
         }
 
+        if (!empty($dirty) && method_exists($instance, 'clearComputedCache')) {
+            $instance->clearComputedCache();
+        }
+
         $session->set($sharedKey, $sharedBag);
         $session->set($sessionKey, $localBag);
     }
@@ -112,7 +121,7 @@ final class Hydrator
         $state = [];
 
         foreach ($recipe as $propName => $cfg) {
-            if ($cfg['kind'] !== 'state') {
+            if (!is_array($cfg) || ($cfg['kind'] ?? null) !== 'state') {
                 continue;
             }
 
@@ -188,7 +197,8 @@ final class Hydrator
             ];
 
             if ($validate) {
-                self::$validateRules[$class][$name] = explode('|', $validate->rules);
+                $normalizedRules = is_array($validate->rules) ? $validate->rules : explode('|', $validate->rules);
+                self::$validateRules[$class][$name] = $normalizedRules;
 
                 $messages = [];
                 if (!empty($validate->messages)) {
@@ -201,11 +211,22 @@ final class Hydrator
                 }
 
                 $recipe[$name]['validate'] = [
-                    'rules' => explode('|', $validate->rules),
+                    'rules' => $normalizedRules,
                     'messages' => $messages,
                 ];
             }
         }
+
+        $computedMethods = [];
+        foreach ($refl->getMethods() as $method) {
+            if (!empty($method->getAttributes(Computed::class))) {
+                $computedMethods[] = $method->getName();
+            }
+        }
+        if (!empty($computedMethods)) {
+            $recipe['__computed__'] = $computedMethods;
+        }
+
         return $recipe;
     }
 

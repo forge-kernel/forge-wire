@@ -15,6 +15,7 @@ final class ComponentRegistry
     private const string COMPONENT_IDS_KEY = 'ids';
     private const string COMPONENT_CLASSES_KEY = 'byClass';
     private const string COMPONENT_PATHS_KEY = 'byPath';
+    private const string COMPONENT_USES_KEY = 'uses';
 
     public function __construct(
         private SessionInterface $session
@@ -23,34 +24,47 @@ final class ComponentRegistry
 
     public function register(
         string $componentId,
-        string $controllerClass,
-        string $action,
+        ?string $controllerClass = null,
+        ?string $action = null,
         ?string $path = null
     ): void {
         $registry = $this->getOrCreateRegistry();
 
-        if (!isset($registry[self::COMPONENT_IDS_KEY][$componentId])) {
+        if (isset($registry[self::COMPONENT_IDS_KEY][$componentId])) {
+            if ($controllerClass !== null) {
+                $registry[self::COMPONENT_IDS_KEY][$componentId]['class'] = $controllerClass;
+            }
+            if ($action !== null) {
+                $registry[self::COMPONENT_IDS_KEY][$componentId]['action'] = $action;
+            }
+            if ($path !== null) {
+                $registry[self::COMPONENT_IDS_KEY][$componentId]['path'] = $path;
+            }
+        } else {
             $registry[self::COMPONENT_IDS_KEY][$componentId] = [
                 'class' => $controllerClass,
                 'action' => $action,
                 'path' => $path,
+                self::COMPONENT_USES_KEY => null,
                 'registeredAt' => time(),
             ];
+        }
 
+        if ($controllerClass !== null) {
             $registry[self::COMPONENT_CLASSES_KEY][$controllerClass] ??= [];
             if (!in_array($componentId, $registry[self::COMPONENT_CLASSES_KEY][$controllerClass], true)) {
                 $registry[self::COMPONENT_CLASSES_KEY][$controllerClass][] = $componentId;
             }
-
-            if ($path !== null) {
-                $registry[self::COMPONENT_PATHS_KEY][$path] ??= [];
-                if (!in_array($componentId, $registry[self::COMPONENT_PATHS_KEY][$path], true)) {
-                    $registry[self::COMPONENT_PATHS_KEY][$path][] = $componentId;
-                }
-            }
-
-            $this->session->set(self::REGISTRY_KEY, $registry);
         }
+
+        if ($path !== null) {
+            $registry[self::COMPONENT_PATHS_KEY][$path] ??= [];
+            if (!in_array($componentId, $registry[self::COMPONENT_PATHS_KEY][$path], true)) {
+                $registry[self::COMPONENT_PATHS_KEY][$path][] = $componentId;
+            }
+        }
+
+        $this->session->set(self::REGISTRY_KEY, $registry);
     }
 
     public function unregister(string $componentId, ?string $controllerClass = null): void
@@ -95,6 +109,24 @@ final class ComponentRegistry
         }
 
         $this->session->set(self::REGISTRY_KEY, $registry);
+    }
+
+    public function setUses(string $componentId, array $uses): void
+    {
+        $registry = $this->getRegistry();
+        if ($registry === null) {
+            return;
+        }
+        if (isset($registry[self::COMPONENT_IDS_KEY][$componentId])) {
+            $registry[self::COMPONENT_IDS_KEY][$componentId][self::COMPONENT_USES_KEY] = $uses;
+            $this->session->set(self::REGISTRY_KEY, $registry);
+        }
+    }
+
+    public function getUses(string $componentId): ?array
+    {
+        $registry = $this->getRegistry();
+        return $registry[self::COMPONENT_IDS_KEY][$componentId][self::COMPONENT_USES_KEY] ?? null;
     }
 
     public function updateAction(string $componentId, string $action): void

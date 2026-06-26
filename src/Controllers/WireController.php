@@ -11,6 +11,7 @@ use App\Modules\ForgeRouter\Http\Attributes\Middleware;
 use App\Modules\ForgeRouter\Http\Request;
 use App\Modules\ForgeRouter\Http\Response;
 use App\Modules\ForgeRouter\Routing\Route;
+use Forge\Core\Debug\Metrics;
 use Forge\Core\Session\SessionInterface;
 use App\Modules\ForgeRouter\Traits\ControllerHelper;
 
@@ -49,15 +50,9 @@ final class WireController
         $this->trackActiveComponent($componentId);
       }
 
+      Metrics::start('forgewire_request');
       $result = $this->kernel->process($payload, $request, $this->session);
-
-      if (random_int(1, 20) === 1) {
-        $this->cleanupStaleComponents();
-      }
-
-      if (random_int(1, 10) === 1) {
-        $this->gcEmptyComponents();
-      }
+      Metrics::stop('forgewire_request');
 
       return $this->jsonResponse($result);
     } catch (\RuntimeException $e) {
@@ -143,105 +138,5 @@ final class WireController
   {
     $activeKey = "forgewire:active:{$componentId}";
     $this->session->set($activeKey, time());
-  }
-
-  /**
-   * Clean up components that haven't been seen recently
-   * Optimized to reduce session operations
-   */
-  private function cleanupStaleComponents(): void
-  {
-    $allKeys = $this->session->all();
-    $now = time();
-    $staleThreshold = 200;
-
-    $componentLastSeen = [];
-    foreach ($allKeys as $key => $value) {
-      if (preg_match('/^forgewire:active:([^:]+)$/', $key, $matches)) {
-        $componentId = $matches[1];
-        $lastSeen = is_numeric($value) ? (int) $value : null;
-        $componentLastSeen[$componentId] = $lastSeen;
-      }
-    }
-
-    foreach ($componentLastSeen as $componentId => $lastSeen) {
-      if ($lastSeen === null || ($now - $lastSeen) > $staleThreshold) {
-        $this->removeComponent($componentId);
-      }
-    }
-  }
-
-  /**
-   * Remove a component and all its related session data
-   * Optimized to batch session operations
-   */
-  private function removeComponent(string $componentId): void
-  {
-    $allKeys = $this->session->all();
-    $prefix = "forgewire:{$componentId}";
-    $keysToRemove = [];
-
-    foreach ($allKeys as $key => $_) {
-      if (str_starts_with($key, $prefix . ':') || $key === $prefix) {
-        $keysToRemove[] = $key;
-      }
-    }
-
-    foreach ($keysToRemove as $key) {
-      $this->session->remove($key);
-    }
-
-    $this->removeFromSharedGroups($componentId);
-    $this->session->remove("forgewire:active:{$componentId}");
-  }
-
-  /**
-   * Remove component from shared groups and clean up empty groups
-   */
-  private function removeFromSharedGroups(string $componentId): void
-  {
-    $allKeys = array_keys($this->session->all());
-    $componentClass = $this->session->get("forgewire:{$componentId}:class");
-
-    if (!$componentClass) {
-      return;
-    }
-
-    $groupKey = "forgewire:shared-group:{$componentClass}:components";
-    if ($this->session->has($groupKey)) {
-      $components = $this->session->get($groupKey, []);
-      $components = array_filter($components, fn($id) => $id !== $componentId);
-      $components = array_values($components);
-
-      if (empty($components)) {
-        $this->session->remove($groupKey);
-        $this->session->remove("forgewire:shared-group:{$componentClass}:initialized");
-        $this->session->remove("forgewire:shared:{$componentClass}");
-      } else {
-        $this->session->set($groupKey, $components);
-      }
-    }
-  }
-
-  /**
-   * Clean up components with empty state (legacy method, kept for compatibility)
-   */
-  private function gcEmptyComponents(): void
-  {
-    $allKeys = $this->session->all();
-    $components = [];
-    foreach ($allKeys as $key => $_) {
-      if (preg_match('/^forgewire:[^:]+$/', $key)) {
-        $components[] = $key;
-      }
-    }
-
-    foreach ($components as $base) {
-      $state = $this->session->get($base, []);
-      if ($state === []) {
-        $componentId = str_replace('forgewire:', '', $base);
-        $this->removeComponent($componentId);
-      }
-    }
   }
 }

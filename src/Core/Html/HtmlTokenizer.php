@@ -124,6 +124,79 @@ final class HtmlTokenizer
     }
 
     /**
+     * Return the byte range [start, end) of the full element at the given index.
+     * Returns null if the index is not an opening/self-closing tag or has no pair.
+     *
+     * @return array{start: int, end: int}|null
+     */
+    public function getElementByteRange(int $index): ?array
+    {
+        $token = $this->tokens[$index] ?? null;
+        if ($token === null || !$this->isOpenOrSelfClosing($token)) {
+            return null;
+        }
+        if ($token['type'] === 'self-closing') {
+            return ['start' => $token['start'], 'end' => $token['end']];
+        }
+        $pairIndex = $token['pair'] ?? null;
+        if ($pairIndex === null) {
+            return null;
+        }
+        $closeToken = $this->tokens[$pairIndex] ?? null;
+        if ($closeToken === null) {
+            return null;
+        }
+        return ['start' => $token['start'], 'end' => $closeToken['end']];
+    }
+
+    /**
+     * Inject an attribute into the element at the given token index.
+     * Returns the modified element HTML, or null if the index is not a tag
+     * token or the attribute already exists.
+     */
+    public function injectAttribute(int $index, string $name, string $value): ?string
+    {
+        $token = $this->tokens[$index] ?? null;
+        if ($token === null || !$this->isOpenOrSelfClosing($token)) {
+            return null;
+        }
+
+        if (array_key_exists($name, $token['attributes'])) {
+            return null;
+        }
+
+        $attrStr = ' ' . $name . '="' . htmlspecialchars((string) $value) . '"';
+        $tagHtml = $token['raw'];
+
+        $tagStartInRaw = 1;
+        $rawLen = strlen($tagHtml);
+        while ($tagStartInRaw < $rawLen && ctype_space($tagHtml[$tagStartInRaw])) {
+            $tagStartInRaw++;
+        }
+        $insertPos = $tagStartInRaw + strlen($token['tag']);
+
+        if ($token['type'] === 'self-closing') {
+            return substr($tagHtml, 0, $insertPos) . $attrStr . substr($tagHtml, $insertPos);
+        }
+
+        $modifiedOpen = substr($tagHtml, 0, $insertPos) . $attrStr . substr($tagHtml, $insertPos);
+
+        $pairIndex = $token['pair'] ?? null;
+        if ($pairIndex === null) {
+            return $modifiedOpen;
+        }
+
+        $closeToken = $this->tokens[$pairIndex] ?? null;
+        if ($closeToken === null) {
+            return $modifiedOpen;
+        }
+
+        $content = substr($this->html, $token['end'], $closeToken['start'] - $token['end']);
+
+        return $modifiedOpen . $content . $closeToken['raw'];
+    }
+
+    /**
      * Extract all elements that have the given attribute.
      * If $value is provided, only elements whose attribute exactly matches are returned.
      *

@@ -11,6 +11,11 @@ use App\Modules\ForgeTesting\TestCase;
 use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
 use App\Modules\ForgeWire\Core\WireKernel;
 use App\Modules\ForgeWire\Security\Checksum;
+use App\Modules\ForgeWire\Services\ActionDispatcher;
+use App\Modules\ForgeWire\Services\ComponentCleanupService;
+use App\Modules\ForgeWire\Services\ComponentRegistry;
+use App\Modules\ForgeWire\Services\DependencyTracker;
+use App\Modules\ForgeWire\Services\SharedStateManager;
 use Forge\Core\Config\Config;
 use Forge\Core\DI\Container;
 use Forge\Core\Session\SessionInterface;
@@ -22,17 +27,10 @@ final class WireKernelSessionBatchingTest extends TestCase
     private SessionInterface $session;
     private \ReflectionMethod $storeExpectedActions;
     private \ReflectionMethod $hasAnyExpectedActions;
-    private \ReflectionMethod $sessionKeys;
 
     #[BeforeEach]
     public function setUpKernel(): void
     {
-        $container = Container::getInstance();
-        $hydrator = $container->get(\App\Modules\ForgeWire\Core\Hydrator::class);
-        $config = new Config(BASE_PATH . '/config');
-        $checksum = new Checksum($config);
-        $this->kernel = new WireKernel($container, $hydrator, $checksum);
-
         $this->session = new class implements SessionInterface {
             private array $data = [];
             private string $id = 'test-session-id';
@@ -51,12 +49,21 @@ final class WireKernelSessionBatchingTest extends TestCase
             public function all(): array { $this->allCalls++; return $this->data; }
         };
 
+        $container = Container::getInstance();
+        $hydrator = $container->get(\App\Modules\ForgeWire\Core\Hydrator::class);
+        $config = new Config(BASE_PATH . '/config');
+        $checksum = new Checksum($config);
+        $registry = new ComponentRegistry($this->session);
+        $cleanupService = new ComponentCleanupService($config, $registry);
+        $sharedStateManager = new SharedStateManager($cleanupService, $registry);
+        $actionDispatcher = new ActionDispatcher($checksum);
+        $dependencyTracker = new DependencyTracker($container, $hydrator, $actionDispatcher, $registry);
+        $this->kernel = new WireKernel($container, $hydrator, $checksum, $cleanupService, $actionDispatcher, $sharedStateManager, $dependencyTracker, $registry);
+
         $this->storeExpectedActions = new \ReflectionMethod($this->kernel, 'storeExpectedActions');
         $this->storeExpectedActions->setAccessible(true);
         $this->hasAnyExpectedActions = new \ReflectionMethod($this->kernel, 'hasAnyExpectedActions');
         $this->hasAnyExpectedActions->setAccessible(true);
-        $this->sessionKeys = new \ReflectionMethod($this->kernel, 'sessionKeys');
-        $this->sessionKeys->setAccessible(true);
     }
 
     #[Test("storeExpectedActions uses a registry key instead of scanning all keys")]
@@ -93,25 +100,4 @@ final class WireKernelSessionBatchingTest extends TestCase
         $this->assertNotSame($oldRegistry, $this->session->get('forgewire:counter:actions:list', []));
     }
 
-    #[Test("sessionKeys helper calls all() exactly once")]
-    public function session_keys_helper_calls_all_once(): void
-    {
-        $this->session->set('forgewire:a', 1);
-        $this->session->set('forgewire:b', 2);
-        $this->session->set('other', 3);
-
-        $callsBefore = $this->session->allCalls;
-        $keys = $this->sessionKeys->invoke($this->kernel, $this->session);
-        $callsAfter = $this->session->allCalls;
-
-        $this->assertSame(3, count($keys));
-        $this->assertSame($callsBefore + 1, $callsAfter);
-    }
-
-    #[Test("sessionKeys helper returns empty array for empty session")]
-    public function session_keys_helper_returns_empty_for_empty_session(): void
-    {
-        $keys = $this->sessionKeys->invoke($this->kernel, $this->session);
-        $this->assertSame([], $keys);
-    }
 }
