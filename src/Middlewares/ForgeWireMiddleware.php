@@ -12,7 +12,7 @@ use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
 use App\Modules\ForgeWire\Services\ComponentIdentityService;
 use App\Modules\ForgeWire\Services\ComponentRegistry;
 use Forge\Core\Session\SessionInterface;
-use Forge\Traits\WireHelper;
+use App\Modules\ForgeWire\Traits\WireHelper;
 
 #[RegisterMiddleware(group: 'web', order: 100)]
 final class ForgeWireMiddleware extends Middleware

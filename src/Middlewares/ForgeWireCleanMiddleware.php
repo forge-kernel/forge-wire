@@ -9,7 +9,7 @@ use App\Modules\ForgeRouter\Http\Request;
 use App\Modules\ForgeRouter\Http\Response;
 use App\Modules\ForgeWire\Services\ComponentRegistry;
 use Forge\Core\Session\SessionInterface;
-use Forge\Traits\WireHelper;
+use App\Modules\ForgeWire\Traits\WireHelper;
 
 final class ForgeWireCleanMiddleware extends Middleware
 {

@@ -16,7 +16,7 @@ use Forge\CLI\Traits\Wizard;
   usage: 'forgewire:minify [--input=JS_PATH] [--output=JS_PATH]',
   examples: [
     'forgewire:minify',
-    'forgewire:minify --input=modules/ForgeWire/src/Resources/assets/js/forgewire.js --output=modules/ForgeWire/src/Resources/assets/js/forgewire.min.js'
+    'forgewire:minify --input=modules/ForgeWire/src/UI/assets/js/forgewire.js --output=modules/ForgeWire/src/UI/assets/js/forgewire.min.js'
   ]
 )]
 final class MinifyForgeWireCommand extends Command
@@ -26,14 +26,14 @@ final class MinifyForgeWireCommand extends Command
 
   #[Arg(
     name: 'input',
-    description: 'Input JS file path (default: modules/ForgeWire/src/Resources/assets/js/forgewire.js)',
+    description: 'Input JS file path (default: modules/ForgeWire/src/UI/assets/js/forgewire.js)',
     required: false
   )]
   private ?string $inputJs = null;
 
   #[Arg(
     name: 'output',
-    description: 'Output JS file path (default: modules/ForgeWire/src/Resources/assets/js/forgewire.min.js)',
+    description: 'Output JS file path (default: modules/ForgeWire/src/UI/assets/js/forgewire.min.js)',
     required: false
   )]
   private ?string $outputJs = null;
@@ -42,8 +42,8 @@ final class MinifyForgeWireCommand extends Command
   {
     $this->wizard($args);
 
-    $input = $this->inputJs ?? BASE_PATH . '/modules/ForgeWire/src/Resources/assets/js/forgewire.js';
-    $output = $this->outputJs ?? BASE_PATH . '/modules/ForgeWire/src/Resources/assets/js/forgewire.min.js';
+    $input = $this->inputJs ?? BASE_PATH . '/modules/ForgeWire/src/UI/assets/js/forgewire.js';
+    $output = $this->outputJs ?? BASE_PATH . '/modules/ForgeWire/src/UI/assets/js/forgewire.min.js';
 
     if (!file_exists($input)) {
       $this->error("Input file not found: {$input}", 'MinifyForgeWire');
