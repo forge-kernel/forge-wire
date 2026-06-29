@@ -1,19 +1,19 @@
 <?php
 
-namespace App\Modules\ForgeWire\Core;
+namespace Modules\ForgeWire\Core;
 
-use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
-use App\Modules\ForgeWire\Security\Checksum;
-use App\Modules\ForgeWire\Response\ForgeWireResponse;
-use App\Modules\ForgeWire\Services\ActionDispatcher;
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
-use App\Modules\ForgeWire\Services\DependencyTracker;
-use App\Modules\ForgeWire\Services\SharedStateManager;
+use Modules\ForgeWire\Attributes\Reactive;
+use Modules\ForgeWire\Core\Html\HtmlTokenizer;
+use Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeWire\Response\ForgeWireResponse;
+use Modules\ForgeWire\Services\ActionDispatcher;
+use Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeWire\Services\DependencyTracker;
+use Modules\ForgeWire\Services\SharedStateManager;
 use Forge\Core\Debug\Metrics;
 use Forge\Core\DI\Container;
-use App\Modules\ForgeRouter\Http\Request;
+use Modules\ForgeRouter\Http\Request;
 use Forge\Exceptions\ValidationException;
 use Forge\Core\Session\SessionInterface;
 use Forge\Core\Validation\ValidationDefinition;

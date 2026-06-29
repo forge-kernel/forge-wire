@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Services;
+namespace Modules\ForgeWire\Services;
 
-use App\Modules\ForgeWire\Core\Hydrator;
+use Modules\ForgeWire\Core\Hydrator;
 use Forge\Core\Session\SessionInterface;
 
 final class SharedStateManager

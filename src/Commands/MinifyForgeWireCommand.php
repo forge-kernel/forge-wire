@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Commands;
+namespace Modules\ForgeWire\Commands;
 
 use Forge\CLI\Command;
 use Forge\CLI\Attributes\Cli;

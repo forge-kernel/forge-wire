@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Traits;
+namespace Modules\ForgeWire\Traits;
 
-use App\Modules\ForgeWire\Response\ForgeWireResponse;
-use App\Modules\ForgeRouter\Http\Request;
+use Modules\ForgeWire\Response\ForgeWireResponse;
+use Modules\ForgeRouter\Http\Request;
 
 trait WithWireResponse
 {
@@ -21,7 +21,7 @@ trait WithWireResponse
     public function isReactive(): bool
     {
         $ref = new \ReflectionClass($this);
-        return !empty($ref->getAttributes(\App\Modules\ForgeWire\Attributes\Reactive::class));
+        return !empty($ref->getAttributes(\Modules\ForgeWire\Attributes\Reactive::class));
     }
 
     protected function getResponseContext(): ?ForgeWireResponse
@@ -31,7 +31,7 @@ trait WithWireResponse
         }
 
         $ref = new \ReflectionClass($this);
-        $reactiveAttr = $ref->getAttributes(\App\Modules\ForgeWire\Attributes\Reactive::class);
+        $reactiveAttr = $ref->getAttributes(\Modules\ForgeWire\Attributes\Reactive::class);
         if (empty($reactiveAttr)) {
             return null;
         }

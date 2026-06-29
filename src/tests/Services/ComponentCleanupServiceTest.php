@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Services;
+namespace Modules\ForgeWire\Tests\Services;
 
-use App\Modules\ForgeTesting\Attributes\BeforeEach;
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeTesting\Attributes\BeforeEach;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentRegistry;
 use Forge\Core\Config\Config;
 use Forge\Core\Session\SessionInterface;
 

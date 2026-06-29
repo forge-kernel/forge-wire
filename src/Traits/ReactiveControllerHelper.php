@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Traits;
+namespace Modules\ForgeWire\Traits;
 
 trait ReactiveEndpointHelper
 {

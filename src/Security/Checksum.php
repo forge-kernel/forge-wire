@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\ForgeWire\Security;
+namespace Modules\ForgeWire\Security;
 
 use Forge\Core\Config\Config;
 use Forge\Core\Session\SessionInterface;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Services;
+namespace Modules\ForgeWire\Services;
 
-use App\Modules\ForgeWire\Attributes\Action;
-use App\Modules\ForgeWire\Security\Checksum;
-use App\Modules\ForgeRouter\Http\Request;
-use App\Modules\ForgeRouter\Http\Response;
+use Modules\ForgeWire\Attributes\Action;
+use Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeRouter\Http\Request;
+use Modules\ForgeRouter\Http\Response;
 use Forge\Core\Session\SessionInterface;
 use ReflectionMethod;
 use ReflectionNamedType;

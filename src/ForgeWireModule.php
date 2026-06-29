@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire;
+namespace Modules\ForgeWire;
 
 use Forge\Core\DI\Container;
 use Forge\Core\Module\Attributes\Compatibility;
@@ -11,17 +11,17 @@ use Forge\Core\Module\Attributes\Module;
 use Forge\Core\Module\Attributes\PostInstall;
 use Forge\Core\Module\Attributes\PostUninstall;
 use Forge\Core\Module\Attributes\Repository;
-use App\Modules\ForgeRouter\Events\RouterHookAttribute;
-use App\Modules\ForgeRouter\Events\RouterHookName;
+use Modules\ForgeRouter\Events\RouterHookAttribute;
+use Modules\ForgeRouter\Events\RouterHookName;
 use Forge\CLI\Traits\OutputHelper;
 use Forge\Core\Config\Config;
-use App\Modules\ForgeRouter\Http\Request;
-use App\Modules\ForgeRouter\Http\Response;
+use Modules\ForgeRouter\Http\Request;
+use Modules\ForgeRouter\Http\Response;
 use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.5",
+    version: "2.7.6",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',

@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Traits;
+namespace Modules\ForgeWire\Traits;
 
-use App\Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeWire\Services\ComponentRegistry;
 
 trait WireHelper {
     private ?ComponentRegistry $componentRegistry = null;

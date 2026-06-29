@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Commands;
+namespace Modules\ForgeWire\Commands;
 
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentCleanupService;
 use Forge\CLI\Attributes\Cli;
 use Forge\CLI\Command;
 use Forge\CLI\Traits\OutputHelper;

@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Core;
+namespace Modules\ForgeWire\Tests\Core;
 
-use App\Modules\ForgeTesting\Attributes\BeforeEach;
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeRouter\Http\Request;
-use App\Modules\ForgeWire\Attributes\Action;
-use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Attributes\State;
-use App\Modules\ForgeWire\Core\WireKernel;
-use App\Modules\ForgeWire\Security\Checksum;
-use App\Modules\ForgeWire\Services\ActionDispatcher;
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
-use App\Modules\ForgeWire\Services\DependencyTracker;
-use App\Modules\ForgeWire\Services\SharedStateManager;
+use Modules\ForgeTesting\Attributes\BeforeEach;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeRouter\Http\Request;
+use Modules\ForgeWire\Attributes\Action;
+use Modules\ForgeWire\Attributes\Reactive;
+use Modules\ForgeWire\Attributes\State;
+use Modules\ForgeWire\Core\WireKernel;
+use Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeWire\Services\ActionDispatcher;
+use Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeWire\Services\DependencyTracker;
+use Modules\ForgeWire\Services\SharedStateManager;
 use Forge\Core\Config\Config;
 use Forge\Core\Debug\Metrics;
 use Forge\Core\DI\Container;
@@ -51,7 +51,7 @@ final class MetricsTest extends TestCase
         };
 
         $container = Container::getInstance();
-        $hydrator = $container->get(\App\Modules\ForgeWire\Core\Hydrator::class);
+        $hydrator = $container->get(\Modules\ForgeWire\Core\Hydrator::class);
         $config = new Config(BASE_PATH . '/config');
         $checksum = new Checksum($config);
         $registry = new ComponentRegistry($this->session);
@@ -148,7 +148,7 @@ final class MetricsTest extends TestCase
 #[Reactive]
 final class MetricsTestController
 {
-    use \App\Modules\ForgeWire\Traits\WithWireResponse;
+    use \Modules\ForgeWire\Traits\WithWireResponse;
 
     #[State]
     public int $count = 0;

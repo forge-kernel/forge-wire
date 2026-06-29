@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Controllers;
+namespace Modules\ForgeWire\Controllers;
 
-use App\Modules\ForgeLogger\Services\ForgeLoggerService;
-use App\Modules\ForgeWire\Core\WireKernel;
-use App\Modules\ForgeRouter\Http\Attributes\UseMiddleware;
-use App\Modules\ForgeRouter\Http\Request;
-use App\Modules\ForgeRouter\Http\Response;
-use App\Modules\ForgeRouter\Attributes\Routable;
-use App\Modules\ForgeRouter\Routing\Endpoint;
+use Modules\ForgeLogger\Services\ForgeLoggerService;
+use Modules\ForgeWire\Core\WireKernel;
+use Modules\ForgeRouter\Http\Attributes\UseMiddleware;
+use Modules\ForgeRouter\Http\Request;
+use Modules\ForgeRouter\Http\Response;
+use Modules\ForgeRouter\Attributes\Routable;
+use Modules\ForgeRouter\Routing\Endpoint;
 use Forge\Core\Debug\Metrics;
 use Forge\Core\Session\SessionInterface;
-use App\Modules\ForgeRouter\Traits\ResponseHelper;
-use App\Modules\ForgeView\Traits\ViewHelper;
+use Modules\ForgeRouter\Traits\ResponseHelper;
+use Modules\ForgeView\Traits\ViewHelper;
 
 #[Routable]
 #[UseMiddleware("web")]

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Middlewares;
+namespace Modules\ForgeWire\Middlewares;
 
-use App\Modules\ForgeRouter\Http\Middleware;
-use App\Modules\ForgeRouter\Http\Request;
-use App\Modules\ForgeRouter\Http\Response;
-use App\Modules\ForgeRouter\Middleware\Attributes\RegisterMiddleware;
-use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
-use App\Modules\ForgeWire\Services\ComponentIdentityService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeRouter\Http\Middleware;
+use Modules\ForgeRouter\Http\Request;
+use Modules\ForgeRouter\Http\Response;
+use Modules\ForgeRouter\Middleware\Attributes\RegisterMiddleware;
+use Modules\ForgeWire\Core\Html\HtmlTokenizer;
+use Modules\ForgeWire\Services\ComponentIdentityService;
+use Modules\ForgeWire\Services\ComponentRegistry;
 use Forge\Core\Session\SessionInterface;
-use App\Modules\ForgeWire\Traits\WireHelper;
+use Modules\ForgeWire\Traits\WireHelper;
 
 #[RegisterMiddleware(group: 'web', order: 100)]
 final class ForgeWireMiddleware extends Middleware

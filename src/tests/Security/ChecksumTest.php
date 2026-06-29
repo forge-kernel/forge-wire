@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Security;
+namespace Modules\ForgeWire\Tests\Security;
 
-use App\Modules\ForgeTesting\Attributes\BeforeEach;
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeTesting\Attributes\BeforeEach;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeWire\Security\Checksum;
 use Forge\Core\Config\Config;
 use Forge\Core\Session\SessionInterface;
 

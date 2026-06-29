@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Attributes;
+namespace Modules\ForgeWire\Attributes;
 
 use Attribute;
 

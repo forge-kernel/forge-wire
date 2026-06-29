@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Services;
+namespace Modules\ForgeWire\Services;
 
-use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeWire\Attributes\Reactive;
+use Modules\ForgeWire\Security\Checksum;
 use Forge\Core\DI\Attributes\Service;
 use Forge\Core\Session\SessionInterface;
 

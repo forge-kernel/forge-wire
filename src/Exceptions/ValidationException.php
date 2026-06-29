@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Exceptions;
+namespace Modules\ForgeWire\Exceptions;
 
 final class ValidationException extends \Exception
 {

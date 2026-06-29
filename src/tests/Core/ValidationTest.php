@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Core;
+namespace Modules\ForgeWire\Tests\Core;
 
-use App\Modules\ForgeTesting\Attributes\BeforeEach;
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeWire\Attributes\Action;
-use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Attributes\State;
-use App\Modules\ForgeWire\Attributes\Validate;
-use App\Modules\ForgeWire\Core\Hydrator;
-use App\Modules\ForgeWire\Core\WireKernel;
-use App\Modules\ForgeWire\Security\Checksum;
-use App\Modules\ForgeWire\Services\ActionDispatcher;
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
-use App\Modules\ForgeWire\Services\DependencyTracker;
-use App\Modules\ForgeWire\Services\SharedStateManager;
-use App\Modules\ForgeWire\Traits\WithWireResponse;
+use Modules\ForgeTesting\Attributes\BeforeEach;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeWire\Attributes\Action;
+use Modules\ForgeWire\Attributes\Reactive;
+use Modules\ForgeWire\Attributes\State;
+use Modules\ForgeWire\Attributes\Validate;
+use Modules\ForgeWire\Core\Hydrator;
+use Modules\ForgeWire\Core\WireKernel;
+use Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeWire\Services\ActionDispatcher;
+use Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeWire\Services\DependencyTracker;
+use Modules\ForgeWire\Services\SharedStateManager;
+use Modules\ForgeWire\Traits\WithWireResponse;
 use Forge\Core\Config\Config;
 use Forge\Core\DI\Container;
 use Forge\Core\Session\SessionInterface;

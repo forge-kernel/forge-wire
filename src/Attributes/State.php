@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\ForgeWire\Attributes;
+namespace Modules\ForgeWire\Attributes;
 
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
 final class State

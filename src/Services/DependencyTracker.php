@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Services;
+namespace Modules\ForgeWire\Services;
 
-use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
-use App\Modules\ForgeWire\Core\Hydrator;
-use App\Modules\ForgeRouter\Http\Request;
+use Modules\ForgeWire\Core\Html\HtmlTokenizer;
+use Modules\ForgeWire\Core\Hydrator;
+use Modules\ForgeRouter\Http\Request;
 use Forge\Core\DI\Container;
 use Forge\Core\Session\SessionInterface;
 use LogicException;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Core;
+namespace Modules\ForgeWire\Core;
 
-use App\Modules\ForgeWire\Attributes\Computed;
-use App\Modules\ForgeWire\Attributes\State;
-use App\Modules\ForgeWire\Attributes\Validate;
+use Modules\ForgeWire\Attributes\Computed;
+use Modules\ForgeWire\Attributes\State;
+use Modules\ForgeWire\Attributes\Validate;
 use Forge\Core\DI\Container;
 use Forge\Core\Session\SessionInterface;
 

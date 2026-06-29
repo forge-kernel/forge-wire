@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Core;
+namespace Modules\ForgeWire\Tests\Core;
 
-use App\Modules\ForgeTesting\Attributes\BeforeEach;
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeWire\Attributes\Reactive;
-use App\Modules\ForgeWire\Attributes\State;
-use App\Modules\ForgeWire\Core\WireKernel;
-use App\Modules\ForgeWire\Security\Checksum;
-use App\Modules\ForgeWire\Services\ActionDispatcher;
-use App\Modules\ForgeWire\Services\ComponentCleanupService;
-use App\Modules\ForgeWire\Services\ComponentRegistry;
-use App\Modules\ForgeWire\Services\DependencyTracker;
-use App\Modules\ForgeWire\Services\SharedStateManager;
+use Modules\ForgeTesting\Attributes\BeforeEach;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeWire\Attributes\Reactive;
+use Modules\ForgeWire\Attributes\State;
+use Modules\ForgeWire\Core\WireKernel;
+use Modules\ForgeWire\Security\Checksum;
+use Modules\ForgeWire\Services\ActionDispatcher;
+use Modules\ForgeWire\Services\ComponentCleanupService;
+use Modules\ForgeWire\Services\ComponentRegistry;
+use Modules\ForgeWire\Services\DependencyTracker;
+use Modules\ForgeWire\Services\SharedStateManager;
 use Forge\Core\Config\Config;
 use Forge\Core\DI\Container;
 use Forge\Core\Session\SessionInterface;
@@ -49,7 +49,7 @@ final class TargetRenderingTest extends TestCase
         };
 
         $container = Container::getInstance();
-        $hydrator = $container->get(\App\Modules\ForgeWire\Core\Hydrator::class);
+        $hydrator = $container->get(\Modules\ForgeWire\Core\Hydrator::class);
         $config = new Config(BASE_PATH . '/config');
         $checksum = new Checksum($config);
         $registry = new ComponentRegistry($this->session);
@@ -111,9 +111,9 @@ final class TargetRenderingTest extends TestCase
         $this->session->set("forgewire:{$id}:uses", ['count']);
     }
 
-    private function createRequest(): \App\Modules\ForgeRouter\Http\Request
+    private function createRequest(): \Modules\ForgeRouter\Http\Request
     {
-        return new \App\Modules\ForgeRouter\Http\Request(
+        return new \Modules\ForgeRouter\Http\Request(
             queryParams: [],
             postData: [],
             serverParams: ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/'],
@@ -126,7 +126,7 @@ final class TargetRenderingTest extends TestCase
 #[Reactive]
 final class TargetTestController
 {
-    use \App\Modules\ForgeWire\Traits\WithWireResponse;
+    use \Modules\ForgeWire\Traits\WithWireResponse;
 
     #[State]
     public int $count = 0;
@@ -140,7 +140,7 @@ final class TargetTestController
 #[Reactive]
 final class NoTargetTestController
 {
-    use \App\Modules\ForgeWire\Traits\WithWireResponse;
+    use \Modules\ForgeWire\Traits\WithWireResponse;
 
     #[State]
     public int $count = 0;

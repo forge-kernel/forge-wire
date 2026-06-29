@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Tests\Core\Html;
+namespace Modules\ForgeWire\Tests\Core\Html;
 
-use App\Modules\ForgeTesting\Attributes\Group;
-use App\Modules\ForgeTesting\Attributes\Test;
-use App\Modules\ForgeTesting\TestCase;
-use App\Modules\ForgeWire\Core\Html\HtmlTokenizer;
+use Modules\ForgeTesting\Attributes\Group;
+use Modules\ForgeTesting\Attributes\Test;
+use Modules\ForgeTesting\TestCase;
+use Modules\ForgeWire\Core\Html\HtmlTokenizer;
 
 #[Group("forgewire-html")]
 final class HtmlTokenizerTest extends TestCase

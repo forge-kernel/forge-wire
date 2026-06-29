@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\ForgeWire\Core\Html;
+namespace Modules\ForgeWire\Core\Html;
 
 /**
  * Lightweight HTML tokenizer for ForgeWire component markup.
