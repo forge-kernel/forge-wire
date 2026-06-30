@@ -11,6 +11,7 @@ use Forge\Core\Module\Attributes\Module;
 use Forge\Core\Module\Attributes\PostInstall;
 use Forge\Core\Module\Attributes\PostUninstall;
 use Forge\Core\Module\Attributes\Repository;
+use Forge\Core\Module\Attributes\Requires;
 use Modules\ForgeRouter\Events\RouterHookAttribute;
 use Modules\ForgeRouter\Events\RouterHookName;
 use Forge\CLI\Traits\OutputHelper;
@@ -21,7 +22,7 @@ use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.6",
+    version: "2.7.8",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',
@@ -29,7 +30,8 @@ use Forge\Traits\InjectsAssets;
     type: 'reactive',
     tags: ['wire', 'reactive', 'rendering']
 )]
-#[Compatibility(framework: ">=0.1.0", php: ">=8.3")]
+#[Compatibility(framework: ">=6.0.23", php: ">=8.3")]
+#[Requires(module: "forge-router")]
 #[Repository(type: "git", url: "https://github.com/forge-kernel/kernel-module-registry")]
 #[ConfigDefaults(defaults: [
     'forge_wire' => [

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Modules\ForgeWire\Controllers;
+namespace Modules\ForgeWire\Http;
 
 use Modules\ForgeLogger\Services\ForgeLoggerService;
 use Modules\ForgeWire\Core\WireKernel;
@@ -18,7 +18,7 @@ use Modules\ForgeView\Traits\ViewHelper;
 
 #[Routable]
 #[UseMiddleware("web")]
-final class WireController
+final class Wire
 {
     use ResponseHelper;
     use ViewHelper;
