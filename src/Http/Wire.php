@@ -78,7 +78,7 @@ final class Wire
                 'line' => $e->getLine(),
             ]);
 
-            $isDebug = env('APP_DEBUG', false);
+            $isDebug = env('APP_DEBUG', true);
             $statusCode = $isChecksumMismatch ? 400 : 500;
 
             $errorResponse = [
@@ -101,7 +101,7 @@ final class Wire
                 'line' => $e->getLine(),
             ]);
 
-            $isDebug = env('APP_DEBUG', false);
+            $isDebug = env('APP_DEBUG', true);
 
             $errorResponse = [
                 'error' => [
