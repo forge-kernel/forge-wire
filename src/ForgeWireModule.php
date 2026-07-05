@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\ForgeWire;
 
+use Forge\Core\Config\Config;
 use Forge\Core\DI\Container;
 use Forge\Core\Module\Attributes\Compatibility;
 use Forge\Core\Module\Attributes\ConfigDefaults;
@@ -12,17 +13,18 @@ use Forge\Core\Module\Attributes\PostInstall;
 use Forge\Core\Module\Attributes\PostUninstall;
 use Forge\Core\Module\Attributes\Repository;
 use Forge\Core\Module\Attributes\Requires;
+use Forge\Core\ResetManager;
 use Modules\ForgeRouter\Events\RouterHookAttribute;
 use Modules\ForgeRouter\Events\RouterHookName;
-use Forge\CLI\Traits\OutputHelper;
-use Forge\Core\Config\Config;
 use Modules\ForgeRouter\Http\Request;
 use Modules\ForgeRouter\Http\Response;
+use Modules\ForgeWire\Response\ForgeWireResponse;
+use Forge\CLI\Traits\OutputHelper;
 use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.9",
+    version: "2.7.10",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',
@@ -50,6 +52,8 @@ final class ForgeWireModule
     public function register(Container $container): void
     {
         $this->setupConfigDefaults($container);
+
+        ResetManager::onBefore([ForgeWireResponse::class, 'clearAll']);
     }
 
     private function setupConfigDefaults(Container $container): void

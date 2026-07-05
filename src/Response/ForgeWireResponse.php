@@ -27,6 +27,11 @@ final class ForgeWireResponse
         unset(self::$contexts[$id]);
     }
 
+    public static function clearAll(): void
+    {
+        self::$contexts = [];
+    }
+
     public static function getCurrentContextId(): ?string
     {
         $ids = array_keys(self::$contexts);
