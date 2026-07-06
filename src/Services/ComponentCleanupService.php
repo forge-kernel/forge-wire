@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Modules\ForgeWire\Services;
 
 use Forge\Core\Config\Config;
-use Forge\Core\DI\Attributes\Service;
 use Forge\Core\Session\SessionInterface;
 
-#[Service]
 /**
  * Removes ForgeWire component session data and detects stale components.
  *

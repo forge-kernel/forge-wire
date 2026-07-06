@@ -6,10 +6,8 @@ namespace Modules\ForgeWire\Services;
 
 use Modules\ForgeWire\Attributes\Reactive;
 use Modules\ForgeWire\Security\Checksum;
-use Forge\Core\DI\Attributes\Service;
 use Forge\Core\Session\SessionInterface;
 
-#[Service]
 final class ComponentIdentityService
 {
     /**

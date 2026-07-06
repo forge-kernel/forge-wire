@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\ForgeWire\Services;
 
-use Forge\Core\DI\Attributes\Service;
 use Forge\Core\Session\SessionInterface;
 
-#[Service]
 final class ComponentRegistry
 {
     private const string REGISTRY_KEY = 'forgewire:registry';
