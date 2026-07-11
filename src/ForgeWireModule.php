@@ -18,13 +18,14 @@ use Modules\ForgeRouter\Events\RouterHookAttribute;
 use Modules\ForgeRouter\Events\RouterHookName;
 use Modules\ForgeRouter\Http\Request;
 use Modules\ForgeRouter\Http\Response;
+use Modules\ForgeRouter\ForgeRouterModule;
 use Modules\ForgeWire\Response\ForgeWireResponse;
 use Forge\CLI\Traits\OutputHelper;
 use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.11",
+    version: "2.7.12",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',
@@ -54,6 +55,8 @@ final class ForgeWireModule
         $this->setupConfigDefaults($container);
 
         ResetManager::onBefore([ForgeWireResponse::class, 'clearAll']);
+
+        ForgeRouterModule::registerMiddleware(\Modules\ForgeWire\Middlewares\ForgeWireMiddleware::class, 'web', 100);
     }
 
     private function setupConfigDefaults(Container $container): void

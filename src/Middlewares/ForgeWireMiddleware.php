@@ -7,14 +7,12 @@ namespace Modules\ForgeWire\Middlewares;
 use Modules\ForgeRouter\Http\Middleware;
 use Modules\ForgeRouter\Http\Request;
 use Modules\ForgeRouter\Http\Response;
-use Modules\ForgeRouter\Middleware\Attributes\RegisterMiddleware;
 use Modules\ForgeWire\Core\Html\HtmlTokenizer;
 use Modules\ForgeWire\Services\ComponentIdentityService;
 use Modules\ForgeWire\Services\ComponentRegistry;
 use Forge\Core\Session\SessionInterface;
 use Modules\ForgeWire\Traits\WireHelper;
 
-#[RegisterMiddleware(group: 'web', order: 100)]
 final class ForgeWireMiddleware extends Middleware
 {
   use WireHelper;
