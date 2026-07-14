@@ -13,6 +13,8 @@ use Forge\Core\Module\Attributes\PostInstall;
 use Forge\Core\Module\Attributes\PostUninstall;
 use Forge\Core\Module\Attributes\Repository;
 use Forge\Core\Module\Attributes\Requires;
+use Forge\Core\Module\Traits\IncludesFiles;
+use Forge\Core\Module\Traits\RegistersCommands;
 use Forge\Core\ResetManager;
 use Modules\ForgeRouter\Events\RouterHookAttribute;
 use Modules\ForgeRouter\Events\RouterHookName;
@@ -25,7 +27,7 @@ use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.12",
+    version: "2.7.14",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',
@@ -47,8 +49,25 @@ use Forge\Traits\InjectsAssets;
 #[PostUninstall(command: 'asset:unlink', args: ['--type=module', '--module=forge-wire'])]
 final class ForgeWireModule
 {
+    use IncludesFiles;
+    use RegistersCommands;
     use OutputHelper;
     use InjectsAssets;
+
+    protected function includes(): array
+    {
+        return [
+            __DIR__ . '/Support/helpers.php',
+        ];
+    }
+
+    protected function commands(): array
+    {
+        return [
+            \Modules\ForgeWire\Commands\CleanupCommand::class,
+            \Modules\ForgeWire\Commands\MinifyForgeWireCommand::class,
+        ];
+    }
 
     public function register(Container $container): void
     {
