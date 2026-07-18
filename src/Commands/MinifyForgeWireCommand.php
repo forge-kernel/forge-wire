@@ -9,6 +9,7 @@ use Forge\CLI\Attributes\Cli;
 use Forge\CLI\Attributes\Arg;
 use Forge\CLI\Traits\OutputHelper;
 use Forge\CLI\Traits\Wizard;
+use Forge\Core\Structure\StructureResolver;
 
 #[Cli(
   command: 'forgewire:minify',
@@ -42,8 +43,9 @@ final class MinifyForgeWireCommand extends Command
   {
     $this->wizard($args);
 
-    $input = $this->inputJs ?? BASE_PATH . '/modules/ForgeWire/src/UI/assets/js/forgewire.js';
-    $output = $this->outputJs ?? BASE_PATH . '/modules/ForgeWire/src/UI/assets/js/forgewire.min.js';
+    $modulesRoot = StructureResolver::findModuleRoot(BASE_PATH, 'ForgeWire') ?? StructureResolver::resolveModulesRoot();
+    $input = $this->inputJs ?? BASE_PATH . "/{$modulesRoot}/ForgeWire/src/UI/assets/js/forgewire.js";
+    $output = $this->outputJs ?? BASE_PATH . "/{$modulesRoot}/ForgeWire/src/UI/assets/js/forgewire.min.js";
 
     if (!file_exists($input)) {
       $this->error("Input file not found: {$input}", 'MinifyForgeWire');

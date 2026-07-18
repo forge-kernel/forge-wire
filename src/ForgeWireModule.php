@@ -27,7 +27,7 @@ use Forge\Traits\InjectsAssets;
 
 #[Module(
     name: "ForgeWire",
-    version: "2.7.14",
+    version: "2.7.15",
     description: "A reactive controller rendering protocol for PHP",
     order: 99,
     author: 'Forge Team',
